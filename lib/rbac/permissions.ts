@@ -93,6 +93,12 @@ export function getNavigationForRole(roleName: RoleName) {
             roles: ['platform_admin', 'cpo_admin', 'operator'],
         },
         {
+            name: 'Map',
+            href: '/dashboard/map',
+            icon: 'MapPin',
+            roles: ['platform_admin', 'cpo_admin', 'operator'],
+        },
+        {
             name: 'Sessions',
             href: '/dashboard/sessions',
             icon: 'Activity',

@@ -8,10 +8,22 @@ import {
     getRecentSessions,
     getSessionsByStation,
 } from '@/lib/api/sessions'
+import {
+    getTenantContextFromRequest,
+    checkPermission,
+} from '@/lib/rbac/tenant-context'
 
 // GET /api/sessions
 export async function GET(request: NextRequest) {
     try {
+        const tenantContext = await getTenantContextFromRequest(request)
+
+        // Check read permission
+        if (!checkPermission(tenantContext, 'sessions', 'view_all') &&
+            !checkPermission(tenantContext, 'sessions', 'view_own')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+
         const { searchParams } = new URL(request.url)
         const id = searchParams.get('id')
         const userId = searchParams.get('userId')
@@ -61,11 +73,13 @@ export async function GET(request: NextRequest) {
 // POST /api/sessions
 export async function POST(request: NextRequest) {
     try {
-        // TODO: Add authentication check
-        // const session = await getSession()
-        // if (!session) {
-        //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        // }
+        const tenantContext = await getTenantContextFromRequest(request)
+
+        // Check manage permission for creating sessions
+        if (!checkPermission(tenantContext, 'sessions', 'manage') &&
+            !checkPermission(tenantContext, 'sessions', 'view_all')) {
+            return NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 })
+        }
 
         const body = await request.json()
 
@@ -93,11 +107,12 @@ export async function POST(request: NextRequest) {
 // PUT /api/sessions
 export async function PUT(request: NextRequest) {
     try {
-        // TODO: Add authentication check
-        // const session = await getSession()
-        // if (!session) {
-        //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        // }
+        const tenantContext = await getTenantContextFromRequest(request)
+
+        // Check manage permission for updating sessions
+        if (!checkPermission(tenantContext, 'sessions', 'manage')) {
+            return NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 })
+        }
 
         const body = await request.json()
         const { id, ...data } = body

@@ -13,22 +13,45 @@ import {
   Zap,
   ChevronLeft,
   Menu,
+  Shield,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { useState } from "react"
+import { useRBAC } from "@/lib/rbac/rbac-context"
+import type { RoleName } from "@/lib/rbac/permissions"
 
-const navigation = [
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Stations", href: "/dashboard/stations", icon: MapPin },
-  { name: "Sessions", href: "/dashboard/sessions", icon: Activity },
-  { name: "Users", href: "/dashboard/users", icon: Users },
-  { name: "Settings", href: "/dashboard/settings", icon: Settings },
-]
+// Map icon names from permissions to actual Lucide components
+const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
+  LayoutDashboard,
+  MapPin,
+  Activity,
+  Users,
+  Settings,
+}
+
+const ROLE_BADGE_COLORS: Record<RoleName, string> = {
+  platform_admin: "bg-primary/20 text-primary",
+  cpo_admin: "bg-chart-2/20 text-chart-2",
+  operator: "bg-warning/20 text-warning",
+  driver: "bg-chart-5/20 text-chart-5",
+}
+
+const ROLE_LABELS: Record<RoleName, string> = {
+  platform_admin: "Platform Admin",
+  cpo_admin: "CPO Admin",
+  operator: "Operator",
+  driver: "Driver",
+}
 
 export function Sidebar() {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { user, roleName, organizationName, navigationItems } = useRBAC()
+
+  // Build initials from user name
+  const initials = `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`
 
   return (
     <>
@@ -84,25 +107,43 @@ export function Sidebar() {
               "flex items-center gap-3",
               collapsed && "justify-center"
             )}>
-              <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center">
-                <span className="text-sm font-medium text-primary">WA</span>
+              <div className="h-9 w-9 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                <span className="text-sm font-medium text-primary">{initials}</span>
               </div>
               {!collapsed && (
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-sidebar-foreground truncate">
-                    WATTSC Admin
+                    {user.firstName} {user.lastName}
                   </p>
                   <p className="text-xs text-muted-foreground truncate">
-                    admin@wattsc.ma
+                    {user.email}
                   </p>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <Shield className="h-3 w-3 text-muted-foreground" />
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "text-[10px] px-1.5 py-0 h-4 font-medium",
+                        ROLE_BADGE_COLORS[roleName]
+                      )}
+                    >
+                      {ROLE_LABELS[roleName]}
+                    </Badge>
+                  </div>
                 </div>
               )}
             </div>
+            {!collapsed && (
+              <p className="text-[10px] text-muted-foreground mt-2 truncate">
+                {organizationName}
+              </p>
+            )}
           </div>
 
-          {/* Navigation */}
+          {/* Navigation - filtered by role */}
           <nav className="flex-1 px-2 py-4 space-y-1">
-            {navigation.map((item) => {
+            {navigationItems.map((item) => {
+              const IconComponent = ICON_MAP[item.icon] || LayoutDashboard
               const isActive = pathname === item.href ||
                 (item.href !== "/dashboard" && pathname.startsWith(item.href))
               return (
@@ -118,7 +159,7 @@ export function Sidebar() {
                     collapsed && "justify-center px-2"
                   )}
                 >
-                  <item.icon className={cn("h-5 w-5 shrink-0", isActive && "text-primary")} />
+                  <IconComponent className={cn("h-5 w-5 shrink-0", isActive && "text-primary")} />
                   {!collapsed && <span>{item.name}</span>}
                 </Link>
               )

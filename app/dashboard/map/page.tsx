@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -22,13 +22,23 @@ import {
   Clock,
   ChevronRight,
 } from "lucide-react"
-import { mockStations } from "@/lib/data/stations"
+import { mockStations, type Station, type Connector } from "@/lib/data/stations"
 
-const statusColors = {
-  online: "bg-primary text-primary-foreground",
-  offline: "bg-destructive text-destructive-foreground",
+const statusColors: Record<string, string> = {
+  active: "bg-primary text-primary-foreground",
+  inactive: "bg-destructive text-destructive-foreground",
   maintenance: "bg-warning text-warning-foreground",
-  "coming-soon": "bg-muted text-muted-foreground",
+}
+
+const statusLabels: Record<string, string> = {
+  active: "Online",
+  inactive: "Offline",
+  maintenance: "Maintenance",
+}
+
+/** Flatten all connectors from the nested evses structure */
+function getAllConnectors(station: Station): Connector[] {
+  return station.evses.flatMap((evse) => evse.connectors)
 }
 
 export default function MapPage() {
@@ -36,23 +46,38 @@ export default function MapPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all")
   const [selectedStation, setSelectedStation] = useState<string | null>(null)
 
-  const filteredStations = mockStations.filter((station) => {
-    const matchesSearch =
-      station.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      station.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      station.city.toLowerCase().includes(searchQuery.toLowerCase())
-    const matchesStatus = statusFilter === "all" || station.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  const filteredStations = useMemo(() =>
+    mockStations.filter((station) => {
+      const matchesSearch =
+        station.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        station.address.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        station.city.toLowerCase().includes(searchQuery.toLowerCase())
+      const matchesStatus = statusFilter === "all" || station.status === statusFilter
+      return matchesSearch && matchesStatus
+    }),
+    [searchQuery, statusFilter]
+  )
 
   const selected = selectedStation
-    ? mockStations.find((s) => s.id === selectedStation)
+    ? mockStations.find((s) => s.id === selectedStation) ?? null
     : null
+
+  // Pre-compute stable positions for markers based on station index in the full list
+  const markerPositions = useMemo(() => {
+    const positions: Record<string, { x: number; y: number }> = {}
+    mockStations.forEach((station, index) => {
+      // Use deterministic positions based on lat/lng normalized to the map area
+      const x = 100 + ((station.longitude + 10) / 6) * 500
+      const y = 50 + ((36 - station.latitude) / 8) * 450
+      positions[station.id] = { x, y }
+    })
+    return positions
+  }, [])
 
   return (
     <div className="flex h-[calc(100vh-120px)] gap-4">
       {/* Sidebar */}
-      <div className="flex w-[360px] flex-col rounded-lg border border-border bg-card">
+      <div className="flex w-[360px] shrink-0 flex-col rounded-lg border border-border bg-card">
         {/* Search & Filters */}
         <div className="flex flex-col gap-3 border-b border-border p-4">
           <div className="relative">
@@ -72,8 +97,8 @@ export default function MapPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="online">Online</SelectItem>
-                <SelectItem value="offline">Offline</SelectItem>
+                <SelectItem value="active">Online</SelectItem>
+                <SelectItem value="inactive">Offline</SelectItem>
                 <SelectItem value="maintenance">Maintenance</SelectItem>
               </SelectContent>
             </Select>
@@ -85,41 +110,42 @@ export default function MapPage() {
 
         {/* Station List */}
         <div className="flex-1 overflow-y-auto">
-          {filteredStations.map((station) => (
-            <div
-              key={station.id}
-              className={`cursor-pointer border-b border-border p-4 transition-colors hover:bg-secondary/50 ${
-                selectedStation === station.id ? "bg-secondary/50" : ""
-              }`}
-              onClick={() => setSelectedStation(station.id)}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-medium text-foreground">{station.name}</h3>
-                    <Badge
-                      className={`text-xs ${statusColors[station.status as keyof typeof statusColors]}`}
-                    >
-                      {station.status}
-                    </Badge>
+          {filteredStations.map((station) => {
+            const connectors = getAllConnectors(station)
+            return (
+              <div
+                key={station.id}
+                className={`cursor-pointer border-b border-border p-4 transition-colors hover:bg-secondary/50 ${
+                  selectedStation === station.id ? "bg-secondary/50" : ""
+                }`}
+                onClick={() => setSelectedStation(station.id)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-medium text-foreground">{station.name}</h3>
+                      <Badge className={`text-xs ${statusColors[station.status] ?? "bg-muted text-muted-foreground"}`}>
+                        {statusLabels[station.status] ?? station.status}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground">{station.address}</p>
+                    <p className="text-sm text-muted-foreground">{station.city}</p>
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">{station.address}</p>
-                  <p className="text-sm text-muted-foreground">{station.city}</p>
+                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
                 </div>
-                <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Zap className="h-3 w-3" />
+                    {connectors.length} connectors
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Battery className="h-3 w-3" />
+                    {connectors.filter((c) => c.status === "available").length} available
+                  </span>
+                </div>
               </div>
-              <div className="mt-3 flex items-center gap-4 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <Zap className="h-3 w-3" />
-                  {station.connectors.length} connectors
-                </span>
-                <span className="flex items-center gap-1">
-                  <Battery className="h-3 w-3" />
-                  {station.connectors.filter((c) => c.status === "available").length} available
-                </span>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Stats Footer */}
@@ -131,13 +157,13 @@ export default function MapPage() {
             </div>
             <div>
               <p className="text-xl font-semibold text-primary">
-                {filteredStations.filter((s) => s.status === "online").length}
+                {filteredStations.filter((s) => s.status === "active").length}
               </p>
               <p className="text-xs text-muted-foreground">Online</p>
             </div>
             <div>
               <p className="text-xl font-semibold text-foreground">
-                {filteredStations.reduce((acc, s) => acc + s.connectors.length, 0)}
+                {filteredStations.reduce((acc, s) => acc + getAllConnectors(s).length, 0)}
               </p>
               <p className="text-xs text-muted-foreground">Connectors</p>
             </div>
@@ -163,10 +189,9 @@ export default function MapPage() {
           </svg>
           
           {/* Station markers */}
-          {filteredStations.map((station, index) => {
-            // Distribute stations across the map area
-            const x = 150 + (index % 5) * 120 + Math.random() * 40
-            const y = 100 + Math.floor(index / 5) * 100 + Math.random() * 40
+          {filteredStations.map((station) => {
+            const pos = markerPositions[station.id]
+            if (!pos) return null
             const isSelected = selectedStation === station.id
             
             return (
@@ -175,14 +200,14 @@ export default function MapPage() {
                 className={`absolute cursor-pointer transition-transform ${
                   isSelected ? "scale-125 z-10" : "hover:scale-110"
                 }`}
-                style={{ left: `${x}px`, top: `${y}px` }}
+                style={{ left: `${pos.x}px`, top: `${pos.y}px` }}
                 onClick={() => setSelectedStation(station.id)}
               >
                 <div
                   className={`flex h-8 w-8 items-center justify-center rounded-full ${
-                    station.status === "online"
+                    station.status === "active"
                       ? "bg-primary text-primary-foreground"
-                      : station.status === "offline"
+                      : station.status === "inactive"
                         ? "bg-destructive text-destructive-foreground"
                         : "bg-warning text-warning-foreground"
                   } ${isSelected ? "ring-4 ring-primary/30" : ""}`}
@@ -208,76 +233,77 @@ export default function MapPage() {
         </div>
 
         {/* Selected Station Panel */}
-        {selected && (
-          <div className="absolute bottom-4 left-4 right-4 rounded-lg border border-border bg-card p-4 shadow-lg">
-            <div className="flex items-start justify-between">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-semibold text-foreground">{selected.name}</h3>
-                  <Badge
-                    className={statusColors[selected.status as keyof typeof statusColors]}
-                  >
-                    {selected.status}
-                  </Badge>
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  {selected.address}, {selected.city}
-                </p>
-              </div>
-              <Button size="sm">
-                <Navigation className="mr-2 h-4 w-4" />
-                Directions
-              </Button>
-            </div>
-            
-            <div className="mt-4 grid grid-cols-4 gap-4">
-              {selected.connectors.map((connector) => (
-                <div
-                  key={connector.id}
-                  className={`rounded-lg border p-3 ${
-                    connector.status === "available"
-                      ? "border-primary/50 bg-primary/10"
-                      : connector.status === "charging"
-                        ? "border-chart-3/50 bg-chart-3/10"
-                        : "border-border bg-secondary/50"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">
-                      {connector.type}
-                    </span>
-                    <Badge
-                      variant="secondary"
-                      className={
-                        connector.status === "available"
-                          ? "bg-primary/20 text-primary"
-                          : connector.status === "charging"
-                            ? "bg-chart-3/20 text-chart-3"
-                            : "bg-muted text-muted-foreground"
-                      }
-                    >
-                      {connector.status}
+        {selected && (() => {
+          const connectors = getAllConnectors(selected)
+          return (
+            <div className="absolute bottom-4 left-4 right-4 rounded-lg border border-border bg-card p-4 shadow-lg">
+              <div className="flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-lg font-semibold text-foreground">{selected.name}</h3>
+                    <Badge className={statusColors[selected.status] ?? "bg-muted text-muted-foreground"}>
+                      {statusLabels[selected.status] ?? selected.status}
                     </Badge>
                   </div>
-                  <p className="mt-1 text-lg font-semibold text-foreground">
-                    {connector.power} kW
+                  <p className="text-sm text-muted-foreground">
+                    {selected.address}, {selected.city}
                   </p>
                 </div>
-              ))}
-            </div>
+                <Button size="sm">
+                  <Navigation className="mr-2 h-4 w-4" />
+                  Directions
+                </Button>
+              </div>
+              
+              <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+                {connectors.map((connector) => (
+                  <div
+                    key={connector.id}
+                    className={`rounded-lg border p-3 ${
+                      connector.status === "available"
+                        ? "border-primary/50 bg-primary/10"
+                        : connector.status === "charging"
+                          ? "border-chart-3/50 bg-chart-3/10"
+                          : "border-border bg-secondary/50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {connector.type}
+                      </span>
+                      <Badge
+                        variant="secondary"
+                        className={
+                          connector.status === "available"
+                            ? "bg-primary/20 text-primary"
+                            : connector.status === "charging"
+                              ? "bg-chart-3/20 text-chart-3"
+                              : "bg-muted text-muted-foreground"
+                        }
+                      >
+                        {connector.status}
+                      </Badge>
+                    </div>
+                    <p className="mt-1 text-lg font-semibold text-foreground">
+                      {connector.power} kW
+                    </p>
+                  </div>
+                ))}
+              </div>
 
-            <div className="mt-4 flex items-center gap-6 text-sm text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <MapPin className="h-4 w-4" />
-                {selected.coordinates.lat.toFixed(4)}, {selected.coordinates.lng.toFixed(4)}
-              </span>
-              <span className="flex items-center gap-1">
-                <Clock className="h-4 w-4" />
-                24/7 Available
-              </span>
+              <div className="mt-4 flex items-center gap-6 text-sm text-muted-foreground">
+                <span className="flex items-center gap-1">
+                  <MapPin className="h-4 w-4" />
+                  {selected.latitude.toFixed(4)}, {selected.longitude.toFixed(4)}
+                </span>
+                <span className="flex items-center gap-1">
+                  <Clock className="h-4 w-4" />
+                  {selected.operatingHours}
+                </span>
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
       </div>
     </div>
   )

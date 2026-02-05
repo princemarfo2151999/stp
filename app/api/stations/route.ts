@@ -8,10 +8,22 @@ import {
     getStationsByCity,
     getStationsByStatus,
 } from '@/lib/api/stations'
+import {
+    getTenantContextFromRequest,
+    checkPermission,
+} from '@/lib/rbac/tenant-context'
 
 // GET /api/stations
 export async function GET(request: NextRequest) {
     try {
+        const tenantContext = await getTenantContextFromRequest(request)
+
+        // Check read permission
+        if (!checkPermission(tenantContext, 'stations', 'view_all') &&
+            !checkPermission(tenantContext, 'stations', 'view_own')) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+
         const { searchParams } = new URL(request.url)
         const city = searchParams.get('city')
         const status = searchParams.get('status') as 'online' | 'offline' | 'maintenance' | 'coming_soon' | null
@@ -53,11 +65,12 @@ export async function GET(request: NextRequest) {
 // POST /api/stations
 export async function POST(request: NextRequest) {
     try {
-        // TODO: Add authentication check
-        // const session = await getSession()
-        // if (!session || !['admin', 'operator'].includes(session.user.role)) {
-        //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        // }
+        const tenantContext = await getTenantContextFromRequest(request)
+
+        // Check create permission
+        if (!checkPermission(tenantContext, 'stations', 'create')) {
+            return NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 })
+        }
 
         const body = await request.json()
 
@@ -85,11 +98,12 @@ export async function POST(request: NextRequest) {
 // PUT /api/stations
 export async function PUT(request: NextRequest) {
     try {
-        // TODO: Add authentication check
-        // const session = await getSession()
-        // if (!session || !['admin', 'operator'].includes(session.user.role)) {
-        //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        // }
+        const tenantContext = await getTenantContextFromRequest(request)
+
+        // Check edit permission
+        if (!checkPermission(tenantContext, 'stations', 'edit')) {
+            return NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 })
+        }
 
         const body = await request.json()
         const { id, ...data } = body
@@ -123,11 +137,12 @@ export async function PUT(request: NextRequest) {
 // DELETE /api/stations
 export async function DELETE(request: NextRequest) {
     try {
-        // TODO: Add authentication check
-        // const session = await getSession()
-        // if (!session || session.user.role !== 'admin') {
-        //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        // }
+        const tenantContext = await getTenantContextFromRequest(request)
+
+        // Check delete permission
+        if (!checkPermission(tenantContext, 'stations', 'delete')) {
+            return NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 })
+        }
 
         const { searchParams } = new URL(request.url)
         const id = searchParams.get('id')
