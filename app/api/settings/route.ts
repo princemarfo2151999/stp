@@ -8,10 +8,29 @@ import {
     getPaymentSettings,
     updatePaymentSetting,
 } from '@/lib/api/settings'
+import {
+    getTenantContextFromRequest,
+    checkPermission,
+} from '@/lib/rbac/tenant-context'
 
 // GET /api/settings
 export async function GET(request: NextRequest) {
     try {
+        const tenantContext = await getTenantContextFromRequest(request)
+
+        // Settings requires at least some settings permission
+        const hasAnySettingsAccess = checkPermission(tenantContext, 'settings', 'general') ||
+            checkPermission(tenantContext, 'settings', 'pricing') ||
+            checkPermission(tenantContext, 'settings', 'notifications') ||
+            checkPermission(tenantContext, 'settings', 'integrations') ||
+            checkPermission(tenantContext, 'settings', 'ocpp') ||
+            checkPermission(tenantContext, 'settings', 'webhooks') ||
+            checkPermission(tenantContext, 'settings', 'database')
+
+        if (!hasAnySettingsAccess) {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+
         const { searchParams } = new URL(request.url)
         const key = searchParams.get('key')
         const category = searchParams.get('category')
@@ -52,11 +71,16 @@ export async function GET(request: NextRequest) {
 // PUT /api/settings
 export async function PUT(request: NextRequest) {
     try {
-        // TODO: Add authentication check
-        // const session = await getSession()
-        // if (!session || session.user.role !== 'admin') {
-        //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        // }
+        const tenantContext = await getTenantContextFromRequest(request)
+
+        // Check if user has settings write access (platform_admin or cpo_admin for their tabs)
+        const hasAnySettingsAccess = checkPermission(tenantContext, 'settings', 'general') ||
+            checkPermission(tenantContext, 'settings', 'pricing') ||
+            checkPermission(tenantContext, 'settings', 'notifications')
+
+        if (!hasAnySettingsAccess) {
+            return NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 })
+        }
 
         const body = await request.json()
         const { key, value, category, updatedBy } = body
@@ -101,11 +125,12 @@ export async function PUT(request: NextRequest) {
 // DELETE /api/settings
 export async function DELETE(request: NextRequest) {
     try {
-        // TODO: Add authentication check
-        // const session = await getSession()
-        // if (!session || session.user.role !== 'admin') {
-        //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        // }
+        const tenantContext = await getTenantContextFromRequest(request)
+
+        // Only platform admins can delete settings
+        if (tenantContext.roleName !== 'platform_admin') {
+            return NextResponse.json({ error: 'Forbidden: only platform admins can delete settings' }, { status: 403 })
+        }
 
         const { searchParams } = new URL(request.url)
         const key = searchParams.get('key')
