@@ -11,7 +11,6 @@ import {
   Server,
   Webhook,
   Database,
-  Shield,
 } from "lucide-react"
 import { GeneralSettings } from "@/components/settings/general-settings"
 import { PricingSettings } from "@/components/settings/pricing-settings"
@@ -21,7 +20,6 @@ import { OcppSettings } from "@/components/settings/ocpp-settings"
 import { WebhooksSettings } from "@/components/settings/webhooks-settings"
 import { DatabaseSettings } from "@/components/settings/database-settings"
 import { useRBAC } from "@/lib/rbac/rbac-context"
-import { Badge } from "@/components/ui/badge"
 
 // Map icon names from permissions to actual Lucide components
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -60,32 +58,19 @@ export default function SettingsPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-foreground">Settings</h1>
-          <p className="text-sm text-muted-foreground">
-            Manage your platform configuration and preferences
-          </p>
-        </div>
-        <Badge variant="outline" className="gap-1.5 text-xs">
-          <Shield className="h-3 w-3" />
-          {roleName === "platform_admin"
-            ? "Full Access"
-            : roleName === "cpo_admin"
-            ? "Limited Access"
-            : "View Only"}
-        </Badge>
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Platform Settings</h1>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col gap-6">
-        <TabsList className="h-auto w-full justify-start gap-1 bg-transparent p-0 flex-wrap">
+        <TabsList className="h-auto w-full justify-start gap-1.5 rounded-none border-b border-border bg-transparent p-0 pb-0 flex-wrap">
           {settingsTabs.map((tab) => {
             const IconComponent = ICON_MAP[tab.icon] || Building2
             return (
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                className="gap-2 rounded-lg border border-transparent px-4 py-2 data-[state=active]:border-border data-[state=active]:bg-card"
+                className="gap-2 rounded-full border border-border bg-transparent px-4 py-1.5 text-sm font-medium text-muted-foreground data-[state=active]:border-primary data-[state=active]:bg-primary/5 data-[state=active]:text-primary mb-2"
               >
                 <IconComponent className="h-4 w-4" />
                 {tab.label}

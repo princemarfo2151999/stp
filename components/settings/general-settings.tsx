@@ -5,8 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Save, Loader2, Building2 } from "lucide-react"
+import { Save, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
 export function GeneralSettings() {
@@ -74,15 +73,10 @@ export function GeneralSettings() {
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <Building2 className="h-5 w-5" />
-            <div>
-              <CardTitle>General Settings</CardTitle>
-              <CardDescription>
-                Configure platform-wide settings and defaults
-              </CardDescription>
-            </div>
-          </div>
+          <CardTitle>General Settings</CardTitle>
+          <CardDescription>
+            Configure basic platform settings
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="grid grid-cols-2 gap-4">
@@ -94,43 +88,32 @@ export function GeneralSettings() {
                 value={settings.platformName}
                 onChange={(e) => setSettings({ ...settings, platformName: e.target.value })}
               />
-              <p className="text-xs text-muted-foreground">Display name for your platform</p>
             </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="default-currency">Default Currency</Label>
-              <Select
+              <Input
+                id="default-currency"
+                placeholder="MAD"
                 value={settings.defaultCurrency}
-                onValueChange={(value) => setSettings({ ...settings, defaultCurrency: value })}
-              >
-                <SelectTrigger id="default-currency">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="MAD">MAD (Moroccan Dirham)</SelectItem>
-                  <SelectItem value="EUR">EUR (Euro)</SelectItem>
-                  <SelectItem value="USD">USD (US Dollar)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">Currency for pricing and billing</p>
+                onChange={(e) => setSettings({ ...settings, defaultCurrency: e.target.value })}
+              />
             </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="vat-rate">VAT Rate (%)</Label>
-            <Input
-              id="vat-rate"
-              type="number"
-              min="0"
-              max="100"
-              step="0.1"
-              placeholder="20"
-              value={settings.vatRate}
-              onChange={(e) => setSettings({ ...settings, vatRate: e.target.value })}
-            />
-            <p className="text-xs text-muted-foreground">Value-added tax percentage</p>
-          </div>
-
           <div className="grid grid-cols-2 gap-4">
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="vat-rate">VAT Rate (%)</Label>
+              <Input
+                id="vat-rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                placeholder="20"
+                value={settings.vatRate}
+                onChange={(e) => setSettings({ ...settings, vatRate: e.target.value })}
+              />
+            </div>
             <div className="flex flex-col gap-2">
               <Label htmlFor="support-email">Support Email</Label>
               <Input
@@ -141,19 +124,21 @@ export function GeneralSettings() {
                 onChange={(e) => setSettings({ ...settings, supportEmail: e.target.value })}
               />
             </div>
-            <div className="flex flex-col gap-2">
-              <Label htmlFor="support-phone">Support Phone</Label>
-              <Input
-                id="support-phone"
-                type="tel"
-                placeholder="+212 5XX-XXXXXX"
-                value={settings.supportPhone}
-                onChange={(e) => setSettings({ ...settings, supportPhone: e.target.value })}
-              />
-            </div>
           </div>
 
-          <div className="flex gap-2">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="support-phone">Support Phone</Label>
+            <Input
+              id="support-phone"
+              type="tel"
+              placeholder="+212 600 000 000"
+              value={settings.supportPhone}
+              onChange={(e) => setSettings({ ...settings, supportPhone: e.target.value })}
+              className="max-w-sm"
+            />
+          </div>
+
+          <div className="flex gap-2 pt-2">
             <Button onClick={handleSave} disabled={loading}>
               {loading ? (
                 <>
@@ -167,15 +152,6 @@ export function GeneralSettings() {
                 </>
               )}
             </Button>
-          </div>
-
-          <div className="rounded-lg border border-border bg-secondary/30 p-3 text-sm">
-            <p className="font-medium mb-1">Configuration Notes:</p>
-            <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-              <li>These settings apply platform-wide to all stations and users</li>
-              <li>Currency changes will affect new transactions only</li>
-              <li>Support contact information is displayed to end users</li>
-            </ul>
           </div>
         </CardContent>
       </Card>
